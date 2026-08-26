@@ -1,0 +1,21 @@
+{
+  "name": "Pic64 图片 Base64 转换工具",
+  "short_name": "Pic64",
+  "description": "在浏览器本地完成图片与 Base64 双向转换和简单编辑。",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#f3f0e8",
+  "theme_color": "#18211f",
+  "icons": [
+    {
+      "src": "./assets/pic64-icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "./assets/pic64-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

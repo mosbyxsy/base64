@@ -1,0 +1,316 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <!-- 基础文档信息：UTF-8 编码和响应式视口确保中文及移动端正确显示。 -->
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="一个完全在浏览器本地运行的图片与 Base64 双向转换工具。"
+    />
+    <meta name="theme-color" content="#18211f" />
+    <title>Pic64 · 图片 Base64 转换工具</title>
+    <link rel="icon" type="image/png" sizes="32x32" href="./assets/pic64-icon-32.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="./assets/pic64-icon-180.png" />
+    <link rel="manifest" href="./site.webmanifest" />
+    <link rel="stylesheet" href="./styles.css" />
+    <!-- defer 会在 HTML 解析完成后执行脚本，避免脚本查询不到页面元素。 -->
+    <script src="./app.js" defer></script>
+  </head>
+  <body>
+    <div class="page-shell">
+      <!-- 页头：品牌入口和本地处理提示。品牌图标与 favicon 使用同一资源。 -->
+      <header class="topbar">
+        <a class="brand" href="#" aria-label="Pic64 首页">
+          <img class="brand-icon" src="./assets/pic64-icon-32.png" width="28" height="28" alt="" />
+          <span>Pic64</span>
+        </a>
+        <div class="privacy-badge">
+          <span class="privacy-dot" aria-hidden="true"></span>
+          本地处理 · 图片不会上传
+        </div>
+      </header>
+
+      <main>
+        <!-- 首屏介绍：概括工具用途，并突出所有操作均在浏览器本地完成。 -->
+        <section class="hero" aria-labelledby="page-title">
+          <p class="eyebrow">IMAGE · BASE64</p>
+          <h1 id="page-title">图片与 Base64，<em>自由转换</em></h1>
+          <p class="hero-copy">
+            快速编码或还原图片，实时查看文件、尺寸与数据大小。<br />
+            所有操作都在你的浏览器中完成。
+          </p>
+        </section>
+
+        <!-- 双栏工作区：左侧负责编码与编辑，右侧负责解码与预览。 -->
+        <section class="workspace" aria-label="Base64 转换工作区">
+          <!-- 编码卡片：接收本地文件或线上图片，并输出 Data URL 格式的 Base64。 -->
+          <div class="tool-card" id="encode-card">
+            <div class="card-heading">
+              <div>
+                <span class="step-number">01</span>
+                <h2>图片转 Base64</h2>
+              </div>
+              <span class="direction-label">ENCODE</span>
+            </div>
+
+            <!-- 隐藏的文件控件由可视化拖放区域触发，accept 限制文件选择器只显示图片。 -->
+            <input id="file-input" type="file" accept="image/*" hidden />
+            <button class="drop-zone" id="drop-zone" type="button">
+              <span class="upload-icon" aria-hidden="true">↑</span>
+              <strong>拖入图片，或点击选择</strong>
+              <span>支持 PNG、JPG、GIF、WebP、SVG 等</span>
+            </button>
+
+            <!-- 线上图片读取依赖目标服务器允许 CORS；失败原因会显示在 url-message。 -->
+            <div class="url-divider"><span>或者使用线上图片链接</span></div>
+            <form class="url-convert-form" id="url-convert-form">
+              <label class="sr-only" for="image-url">线上图片链接</label>
+              <div class="url-input-wrap">
+                <span aria-hidden="true">↗</span>
+                <input
+                  id="image-url"
+                  type="url"
+                  inputmode="url"
+                  autocomplete="url"
+                  placeholder="https://example.com/image.png"
+                  aria-describedby="url-hint url-message"
+                />
+              </div>
+              <button class="button button-dark" id="url-convert-button" type="submit" disabled>
+                转为 Base64
+              </button>
+            </form>
+            <p class="url-hint" id="url-hint">目标网站需允许浏览器跨域读取图片（CORS）</p>
+            <div class="url-message is-hidden" id="url-message" role="status"></div>
+
+            <!-- 编码预览：成功读取图片后显示预览、操作工具条和输出文件信息。 -->
+            <div class="preview-panel is-hidden" id="encode-preview-panel">
+              <div class="image-stage checkerboard encode-image-stage">
+                <img id="encode-preview" alt="待转换图片预览" />
+              </div>
+              <div class="preview-image-actions">
+                <span>图片操作</span>
+                <div>
+                  <button class="preview-action-button preview-action-primary" id="open-editor-button" type="button" disabled>
+                    <span aria-hidden="true">✣</span> 编辑图片
+                  </button>
+                  <button class="preview-action-button" id="download-edited-button" type="button" disabled>
+                    <span aria-hidden="true">↓</span> 下载图片
+                  </button>
+                </div>
+              </div>
+              <dl class="info-grid" id="encode-info">
+                <div><dt>文件名</dt><dd id="file-name">—</dd></div>
+                <div><dt>图片尺寸</dt><dd id="image-dimensions">—</dd></div>
+                <div><dt>文件大小</dt><dd id="file-size">—</dd></div>
+                <div><dt>文件类型</dt><dd id="file-type">—</dd></div>
+              </dl>
+              <div class="preview-state-row" id="preview-state-row">
+                <span><i aria-hidden="true"></i><span id="preview-state-label">当前为原始图片</span></span>
+                <button class="restore-button" id="restore-original-button" type="button" disabled>
+                  ↶ 恢复原图
+                </button>
+              </div>
+            </div>
+
+            <!--
+              共享图片编辑弹窗：左、右两侧图片复用同一套裁剪和压缩控件。
+              is-hidden 控制显示；role="dialog" 和 aria-modal 提供辅助技术语义。
+            -->
+            <div class="editor-modal is-hidden" id="editor-modal">
+              <button class="editor-backdrop" id="editor-backdrop" type="button" aria-label="关闭图片编辑器"></button>
+              <section
+                class="editor-panel editor-dialog"
+                id="image-editor"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="editor-title"
+              >
+              <div class="editor-heading">
+                <div>
+                  <span class="editor-mark" aria-hidden="true">✣</span>
+                  <div>
+                    <h3 id="editor-title">简单编辑</h3>
+                    <p>在图片上拖拽框选裁剪区域</p>
+                  </div>
+                </div>
+                <div class="editor-heading-actions">
+                  <button class="text-button" id="reset-crop-button" type="button">重置裁剪</button>
+                  <button class="modal-close" id="close-editor-button" type="button" aria-label="关闭图片编辑器">×</button>
+                </div>
+              </div>
+
+              <!-- Canvas 同时绘制图片、裁剪遮罩、边框和三分线；指针事件由 app.js 处理。 -->
+              <div class="crop-stage checkerboard" id="crop-stage">
+                <canvas
+                  id="crop-canvas"
+                  tabindex="0"
+                  aria-label="图片裁剪区域，可拖拽选择范围，方向键可移动选区"
+                ></canvas>
+              </div>
+
+              <!-- 输出参数：裁剪比例、目标格式、最大宽度和有损格式的压缩质量。 -->
+              <div class="editor-controls">
+                <label class="control-field">
+                  <span>裁剪比例</span>
+                  <select id="crop-ratio">
+                    <option value="free">自由裁剪</option>
+                    <option value="1">1 : 1</option>
+                    <option value="1.3333333333">4 : 3</option>
+                    <option value="1.7777777778">16 : 9</option>
+                    <option value="0.75">3 : 4</option>
+                  </select>
+                </label>
+                <label class="control-field">
+                  <span>输出格式</span>
+                  <select id="output-format">
+                    <option value="image/png">PNG</option>
+                    <option value="image/jpeg">JPG</option>
+                    <option value="image/webp">WebP</option>
+                  </select>
+                </label>
+                <label class="control-field">
+                  <span>最大宽度</span>
+                  <select id="output-width">
+                    <option value="0">保持原尺寸</option>
+                    <option value="1920">1920 px</option>
+                    <option value="1280">1280 px</option>
+                    <option value="800">800 px</option>
+                    <option value="480">480 px</option>
+                  </select>
+                </label>
+              </div>
+
+              <label class="quality-control" id="quality-control">
+                <span>压缩质量</span>
+                <input id="output-quality" type="range" min="20" max="100" value="82" />
+                <output id="quality-value" for="output-quality">82%</output>
+              </label>
+
+              <div class="edit-footer">
+                <span id="edit-status">调整参数后应用，Base64 将同步更新</span>
+                <div class="edit-footer-actions">
+                  <button class="button button-coral" id="apply-close-button" type="button">
+                    应用并关闭
+                  </button>
+                </div>
+              </div>
+              </section>
+            </div>
+
+            <!-- Base64 输出为只读，防止用户误改导致下载内容与预览状态不一致。 -->
+            <div class="field-block">
+              <div class="field-label-row">
+                <label for="base64-output">Base64 结果</label>
+                <span id="output-size">等待选择图片</span>
+              </div>
+              <textarea
+                id="base64-output"
+                rows="7"
+                readonly
+                spellcheck="false"
+                placeholder="选择图片后，Base64 内容将显示在这里…"
+              ></textarea>
+            </div>
+
+            <div class="action-row">
+              <button class="button button-primary" id="copy-button" type="button" disabled>
+                复制 Base64
+              </button>
+              <button class="button button-secondary" id="save-text-button" type="button" disabled>
+                下载文本
+              </button>
+              <button class="button button-secondary" id="encode-clear-button" type="button" disabled>
+                清空
+              </button>
+            </div>
+          </div>
+
+          <!-- 解码卡片：接受完整 Data URL 或不含前缀的纯 Base64。 -->
+          <div class="tool-card" id="decode-card">
+            <div class="card-heading">
+              <div>
+                <span class="step-number coral">02</span>
+                <h2>Base64 还原图片</h2>
+              </div>
+              <span class="direction-label">DECODE</span>
+            </div>
+
+            <div class="field-block decode-input-block">
+              <div class="field-label-row">
+                <label for="base64-input">粘贴 Base64</label>
+                <span id="input-size">0 B</span>
+              </div>
+              <textarea
+                id="base64-input"
+                rows="9"
+                spellcheck="false"
+                placeholder="data:image/png;base64,iVBORw0KGgo…\n\n也支持不含 data: 前缀的纯 Base64 内容"
+              ></textarea>
+            </div>
+
+            <div class="inline-message is-hidden" id="decode-message" role="status"></div>
+
+            <button class="button button-coral button-full" id="decode-button" type="button" disabled>
+              还原并预览图片 <span aria-hidden="true">→</span>
+            </button>
+
+            <!-- 解码结果：展示当前 Blob 信息，并根据是否编辑切换还原/转 Base64 操作。 -->
+            <div class="preview-panel decode-result is-hidden" id="decode-result">
+              <div class="image-stage checkerboard">
+                <img id="decode-preview" alt="Base64 还原后的图片预览" />
+              </div>
+              <dl class="info-grid decode-info-grid">
+                <div><dt>图片尺寸</dt><dd id="decoded-dimensions">—</dd></div>
+                <div><dt>图片大小</dt><dd id="decoded-size">—</dd></div>
+                <div><dt>图片类型</dt><dd id="decoded-type">—</dd></div>
+                <div><dt>Base64 大小</dt><dd id="decoded-base64-size">—</dd></div>
+              </dl>
+              <div class="result-tip" id="decoded-state">
+                <span class="result-tip-icon" aria-hidden="true">✦</span>
+                <span class="result-tip-copy">
+                  <strong id="decoded-state-title">图片已准备好</strong>
+                  <small id="decoded-state-copy">可继续裁剪、压缩或转换格式</small>
+                </span>
+                <button class="result-restore-button" id="restore-decoded-button" type="button" disabled>
+                  ↶ 还原图片
+                </button>
+              </div>
+              <div class="action-row result-actions">
+                <button class="button button-primary" id="download-image-button" type="button">
+                  下载图片
+                </button>
+                <button class="button button-secondary is-hidden" id="convert-decoded-button" type="button">
+                  转为 Base64
+                </button>
+                <button class="button button-secondary" id="edit-decoded-button" type="button">
+                  编辑
+                </button>
+                <button class="button button-secondary" id="decode-clear-button" type="button">
+                  清空
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- 静态特性说明，不参与图片处理逻辑。 -->
+        <section class="feature-strip" aria-label="产品特点">
+          <div><span>✦</span><strong>即时转换</strong><small>无需等待上传</small></div>
+          <div><span>⌁</span><strong>格式兼容</strong><small>常见图片均支持</small></div>
+          <div><span>⌾</span><strong>隐私安全</strong><small>数据不离开设备</small></div>
+        </section>
+      </main>
+
+      <!-- 页脚再次说明产品定位和隐私承诺。 -->
+      <footer>
+        <span>Pic64 / 本地图片转换工具</span>
+        <span>NO UPLOADS · NO TRACKING</span>
+      </footer>
+    </div>
+
+    <!-- 全局轻提示：aria-live 让复制、下载、编辑结果也能被屏幕阅读器播报。 -->
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  </body>
+</html>
